@@ -53,7 +53,7 @@ echo <<<HTML
   </style>
 </head>
 <body>
-  <h2>🛒 Productos disponibles</h2>
+  <h2>Productos disponibles</h2>
   <ul>
 HTML;
 
