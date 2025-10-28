@@ -10,6 +10,7 @@ Desplegar una aplicación web básica con Apache, PHP y PostgreSQL usando Vagran
 - `provision-db.sh`: instala PostgreSQL, crea base de datos y tabla.
 - `www/index.html`: página de bienvenida.
 - `www/info.php`: script PHP que muestra info del servidor y datos desde PostgreSQL.
+- `capturas/`: carpeta con imágenes de evidencia del funcionamiento.
 
 ## Pasos de instalación
 
