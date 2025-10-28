@@ -1,11 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+  <meta charset="UTF-8">
   <title>Mi primer sitio con Vagrant</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #f0f4f8, #d9e2ec);
+      color: #333;
+      text-align: center;
+      padding: 50px;
+    }
+    h1 {
+      font-size: 2.5em;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    p {
+      font-size: 1.2em;
+      margin-bottom: 30px;
+    }
+    a {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #3498db;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    a:hover {
+      background-color: #2980b9;
+    }
+    footer {
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
 </head>
 <body>
-  <h1>Hola, soy Salome</h1>
-  <p>Este sitio esta corriendo en la maquina virtual provisionada con Vagrant.</p>
+  <h1>¡Hola, soy Salome!</h1>
+  <p>Este sitio esta corriendo en una maquina virtual provisionada con Vagrant.</p>
   <a href="info.php">Ver script en PHP</a>
+  <footer>
+    Taller Vagrant · Apache + PHP + PostgreSQL
+  </footer>
 </body>
 </html>
