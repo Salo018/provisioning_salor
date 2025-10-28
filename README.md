@@ -15,6 +15,6 @@ Desplegar una aplicación web básica con Apache, PHP y PostgreSQL usando Vagran
 ## Pasos de instalación
 
 ```bash
-git clone https://github.com/tuusuario/vagrant-web-provisioning.git
+git clone https://github.com/jmaquin0/vagrant-web-provisioning.git
 cd vagrant-web-provisioning
 vagrant up
