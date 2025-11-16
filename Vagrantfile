@@ -1,8 +1,10 @@
+
 Vagrant.configure("2") do |config|
   
   # Máquina Web (Apache + PHP + Exporters)
   config.vm.define "web" do |web|
-    web.vm.box = "ubuntu/bionic64"
+    web.vm.box = "bento/ubuntu-18.04"
+    web.vm.box_version = "202112.19.0"
     web.vm.hostname = "web-server"
     web.vm.network "private_network", ip: "192.168.33.10"
     
@@ -18,7 +20,8 @@ Vagrant.configure("2") do |config|
 
   # Máquina DB (PostgreSQL + Prometheus + Grafana)
   config.vm.define "db" do |db|
-    db.vm.box = "ubuntu/bionic64"
+    db.vm.box = "bento/ubuntu-18.04"
+    db.vm.box_version = "202112.19.0"
     db.vm.hostname = "monitoring-db-server"
     db.vm.network "private_network", ip: "192.168.33.11"
     

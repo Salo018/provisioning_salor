@@ -29,7 +29,7 @@ BEGIN
    IF NOT EXISTS (
       SELECT FROM pg_catalog.pg_roles WHERE rolname = 'salome'
    ) THEN
-      CREATE USER salome WITH PASSWORD 'clave123';
+      CREATE USER salome WITH PASSWORD '123';
    END IF;
 END
 \$\$;
@@ -302,7 +302,7 @@ echo "================================================"
 echo ""
 echo "PostgreSQL:"
 echo "   Base de datos: tallerdb"
-echo "   Usuario: salome / clave123"
+echo "   Usuario: salome / 123"
 echo "   Productos registrados: 5"
 echo ""
 echo "Prometheus:"

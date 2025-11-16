@@ -45,6 +45,20 @@ echo <<<HTML
       font-weight: bold;
       margin-top: 50px;
     }
+    a {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #3498db;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+      margin-top: 20px;
+    }
+    a:hover {
+      background-color: #2980b9;
+    }
     footer {
       margin-top: 40px;
       font-size: 0.9em;
@@ -63,6 +77,7 @@ while ($row = pg_fetch_assoc($result)) {
 
 echo <<<HTML
   </ul>
+  <a href="index.html">← Volver al inicio</a>
   <footer>
     Datos obtenidos desde PostgreSQL · Taller Vagrant
   </footer>

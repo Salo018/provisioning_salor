@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DataExplorer Project</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to right, #f0f4f8, #d9e2ec);
+            color: #333;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 { 
+            color: #2c3e50; 
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .status { 
+            color: #27ae60; 
+            font-weight: bold; 
+            font-size: 1.2em;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+        
+        h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        li {
+            padding: 8px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        li:last-child {
+            border-bottom: none;
+        }
+        
+        a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+        
+        .metric-link {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 5px;
+        }
+        
+        a.btn-back {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        a.btn-back:hover {
+            background-color: #2980b9;
+            text-decoration: none;
+            color: white !important;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+            color: #777;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DataExplorer Project</h1>
+        <p class="status">✓ Servidor Web Funcionando Correctamente</p>
+        
+        <div class="info-box">
+            <h3>Información del Servidor Web:</h3>
+            <ul>
+                <li><strong>Servidor:</strong> Apache 2.4</li>
+                <li><strong>PHP:</strong> Instalado y configurado</li>
+                <li><strong>Sistema Operativo:</strong> Ubuntu 18.04 LTS</li>
+                <li><strong>IP:</strong> 192.168.33.10</li>
+                <li><strong>Hostname:</strong> web-server</li>
+                <li><strong>Recursos:</strong> 1GB RAM, 1 CPU</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Páginas Disponibles:</h3>
+            <ul>
+                <li><a href="index.html">index.html</a> - Página principal</li>
+                <li><a href="info.php">info.php</a> - Listado de productos desde PostgreSQL</li>
+                <li><a href="dataexplorer.html">dataexplorer.html</a> - Esta página</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Herramientas de Monitoreo:</h3>
+            <ul>
+                <li><a href="http://192.168.33.11:9090" target="_blank">Prometheus</a> - Recolección de métricas del sistema</li>
+                <li><a href="http://192.168.33.11:3000" target="_blank">Grafana</a> - Visualización de dashboards (Usuario: admin / Contraseña: admin)</li>
+                <li><a href="http://localhost:9090" target="_blank">localhost:9090</a> - Prometheus (acceso directo)</li>
+                <li><a href="http://localhost:3000" target="_blank">localhost:3000</a> - Grafana (acceso directo)</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Métricas Exportadas:</h3>
+            <p>Este servidor exporta métricas que Prometheus recolecta automáticamente:</p>
+            <div class="metric-link">
+                <a href="http://192.168.33.10:9100/metrics" target="_blank">Node Exporter (puerto 9100)</a> - Métricas del sistema (CPU, RAM, Disco, Red)
+            </div>
+            <div class="metric-link">
+                <a href="http://192.168.33.10:9117/metrics" target="_blank">Apache Exporter (puerto 9117)</a> - Métricas del servidor web Apache
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>Base de Datos:</h3>
+            <ul>
+                <li><strong>Motor:</strong> PostgreSQL 10</li>
+                <li><strong>Servidor:</strong> 192.168.33.11</li>
+                <li><strong>Base de datos:</strong> tallerdb</li>
+                <li><strong>Usuario:</strong> salome</li>
+                <li><strong>Tabla:</strong> productos (5 registros)</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Sobre el Proyecto:</h3>
+            <p>Este es el proyecto final DataExplorer que implementa:</p>
+            <ul>
+                <li>✓ Virtualización con Vagrant + VirtualBox</li>
+                <li>✓ Aprovisionamiento automatizado con Shell Scripts</li>
+                <li>✓ Servidor web Apache con PHP</li>
+                <li>✓ Base de datos PostgreSQL</li>
+                <li>✓ Sistema de monitoreo con Prometheus</li>
+                <li>✓ Visualización de métricas con Grafana</li>
+                <li>✓ Exportadores de métricas (Node Exporter y Apache Exporter)</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="index.html" class="btn-back">← Volver al inicio</a>
+        </div>
+
+        <footer>
+            <p><strong>Proyecto Final - Sistemas Operativos</strong></p>
+            <p>Taller Vagrant · Apache + PHP + PostgreSQL + Prometheus + Grafana</p>
+        </footer>
+    </div>
+</body>
+</html>
