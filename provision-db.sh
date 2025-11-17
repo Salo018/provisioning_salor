@@ -21,48 +21,78 @@ apt-get install -y postgresql postgresql-contrib
 systemctl enable postgresql
 systemctl start postgresql
 
-# Crear usuario y base de datos
-echo "Configurando base de datos..."
-sudo -u postgres psql <<EOF
-DO \$\$
-BEGIN
-   IF NOT EXISTS (
-      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'salome'
-   ) THEN
-      CREATE USER salome WITH PASSWORD '123';
-   END IF;
-END
-\$\$;
+# Esperar a que PostgreSQL esté listo
+sleep 5
 
-DO \$\$
-BEGIN
-   IF NOT EXISTS (
-      SELECT FROM pg_database WHERE datname = 'tallerdb'
-   ) THEN
-      CREATE DATABASE tallerdb OWNER salome;
-   END IF;
-END
-\$\$;
-EOF
+# ============================
+# CONFIGURAR POSTGRESQL
+# ============================
+echo ""
+echo "Configurando PostgreSQL para conexiones remotas..."
 
-# Crear tabla y datos
+# Configurar para escuchar en todas las interfaces
+sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/g" /etc/postgresql/10/main/postgresql.conf
+sed -i "s/listen_addresses = 'localhost'/listen_addresses = '*'/g" /etc/postgresql/10/main/postgresql.conf
+
+# Permitir conexiones desde la red
+if ! grep -q "192.168.33.0/24" /etc/postgresql/10/main/pg_hba.conf; then
+    echo "host    all             all             192.168.33.0/24         md5" >> /etc/postgresql/10/main/pg_hba.conf
+fi
+
+# Reiniciar PostgreSQL
+systemctl restart postgresql
+
+# Esperar a que reinicie
+sleep 5
+
+# ============================
+# CREAR USUARIO Y BASE DE DATOS
+# ============================
+echo ""
+echo "Creando usuario y base de datos..."
+
+# Crear usuario salome si no existe
+sudo -u postgres psql -tc "SELECT 1 FROM pg_user WHERE usename = 'salome'" | grep -q 1 || \
+sudo -u postgres psql -c "CREATE USER salome WITH PASSWORD '123';"
+
+# Crear base de datos si no existe
+sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = 'tallerdb'" | grep -q 1 || \
+sudo -u postgres createdb -O salome tallerdb
+
+# Dar privilegios
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE tallerdb TO salome;"
+
+# ============================
+# CREAR TABLA Y DATOS
+# ============================
+echo ""
+echo "Creando tabla de productos..."
+
 sudo -u postgres psql -d tallerdb <<EOF
+-- Crear tabla si no existe
 CREATE TABLE IF NOT EXISTS productos (
   id SERIAL PRIMARY KEY,
   nombre TEXT,
   precio NUMERIC
 );
 
-INSERT INTO productos (nombre, precio) VALUES
+-- Insertar datos solo si la tabla está vacía
+INSERT INTO productos (nombre, precio) 
+SELECT * FROM (VALUES
   ('Laptop', 1200),
   ('Mouse', 25),
   ('Teclado', 80),
   ('Monitor', 300),
   ('Webcam', 150)
-ON CONFLICT DO NOTHING;
+) AS v(nombre, precio)
+WHERE NOT EXISTS (SELECT 1 FROM productos LIMIT 1);
+
+-- Dar permisos al usuario salome
+GRANT ALL PRIVILEGES ON TABLE productos TO salome;
+GRANT USAGE, SELECT ON SEQUENCE productos_id_seq TO salome;
 EOF
 
-echo "✓ PostgreSQL configurado"
+echo "✓ PostgreSQL configurado correctamente"
 
 # ============================
 # INSTALAR PROMETHEUS
@@ -79,12 +109,13 @@ mkdir -p /var/lib/prometheus
 
 # Descargar Prometheus
 cd /tmp
-wget -q https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
+wget -q https://github.com/prometheus/prometheus/releases/download/v2.44.0/prometheus-2.44.0.linux-amd64.tar.gz
 tar xzf prometheus-2.45.0.linux-amd64.tar.gz
 
 # Copiar binarios
 cp prometheus-2.45.0.linux-amd64/prometheus /usr/local/bin/
 cp prometheus-2.45.0.linux-amd64/promtool /usr/local/bin/
+chmod +x /usr/local/bin/prometheus /usr/local/bin/promtool
 
 # Copiar archivos de configuración
 cp -r prometheus-2.45.0.linux-amd64/consoles /etc/prometheus/
@@ -116,22 +147,14 @@ scrape_configs:
           instance: 'web-vm'
           type: 'system-metrics'
 
-  # Métricas de Apache
+  # Métricas de Apache (puerto 9117)
   - job_name: 'web-server-apache'
     static_configs:
-      - targets: ['192.168.33.10:9113']
+      - targets: ['192.168.33.10:9117']
         labels:
           alias: 'apache-web'
           instance: 'web-vm'
           type: 'apache-metrics'
-
-  # Métricas del servidor de monitoreo (opcional)
-  - job_name: 'monitoring-server'
-    static_configs:
-      - targets: ['localhost:9100']
-        labels:
-          alias: 'monitoring-server'
-          instance: 'db-vm'
 EOF
 
 # Establecer permisos
@@ -164,37 +187,6 @@ systemctl start prometheus
 systemctl enable prometheus
 
 echo "✓ Prometheus instalado y corriendo"
-
-# ============================
-# INSTALAR NODE EXPORTER (en DB server también)
-# ============================
-echo ""
-echo "Instalando Node Exporter en servidor de monitoreo..."
-cd /tmp
-wget -q https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
-tar xzf node_exporter-1.6.1.linux-amd64.tar.gz
-cp node_exporter-1.6.1.linux-amd64/node_exporter /usr/local/bin/
-rm -rf node_exporter-1.6.1.linux-amd64*
-
-cat > /etc/systemd/system/node_exporter.service <<'EOF'
-[Unit]
-Description=Node Exporter
-After=network.target
-
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/local/bin/node_exporter
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl start node_exporter
-systemctl enable node_exporter
-
-echo "✓ Node Exporter instalado"
 
 # ============================
 # INSTALAR GRAFANA
@@ -272,7 +264,8 @@ echo "================================================"
 
 if systemctl is-active --quiet postgresql; then
     echo "✓ PostgreSQL está corriendo"
-    sudo -u postgres psql -d tallerdb -c "SELECT COUNT(*) as productos FROM productos;"
+    PROD_COUNT=$(sudo -u postgres psql -d tallerdb -t -c "SELECT COUNT(*) FROM productos;" 2>/dev/null | tr -d ' ')
+    echo "  Base de datos: tallerdb con $PROD_COUNT productos"
 else
     echo "✗ PostgreSQL NO está corriendo"
 fi
@@ -289,39 +282,32 @@ else
     echo "✗ Grafana NO está corriendo"
 fi
 
-if systemctl is-active --quiet node_exporter; then
-    echo "✓ Node Exporter está corriendo"
-else
-    echo "✗ Node Exporter NO está corriendo"
-fi
-
 echo ""
 echo "================================================"
-echo "Provisionamiento de VM DB completado!"
+echo "Provisionamiento de VM DB completado"
 echo "================================================"
 echo ""
 echo "PostgreSQL:"
 echo "   Base de datos: tallerdb"
 echo "   Usuario: salome / 123"
-echo "   Productos registrados: 5"
+echo "   Productos: 5"
 echo ""
 echo "Prometheus:"
 echo "   http://192.168.33.11:9090"
 echo "   http://localhost:9090"
 echo ""
-echo " Grafana:"
+echo "Grafana:"
 echo "   http://192.168.33.11:3000"
 echo "   http://localhost:3000"
 echo "   Usuario: admin"
 echo "   Password: admin"
 echo ""
-echo " Targets monitoreados:"
-echo "   - Prometheus (este servidor)"
+echo "Targets monitoreados:"
+echo "   - Prometheus (localhost:9090)"
 echo "   - Web Server System (192.168.33.10:9100)"
-echo "   - Web Server Apache (192.168.33.10:9113)"
-echo "   - Monitoring Server (localhost:9100)"
+echo "   - Web Server Apache (192.168.33.10:9117)"
 echo ""
-echo " Dashboards recomendados (importar en Grafana):"
+echo "Dashboards recomendados (importar en Grafana):"
 echo "   - Node Exporter Full: ID 1860"
 echo "   - Apache: ID 3894"
 echo "================================================"
