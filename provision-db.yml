@@ -1,0 +1,312 @@
+
+---
+- name: Provisionar Servidor DB con PostgreSQL, Prometheus y Grafana
+  hosts: all
+  become: yes
+  
+  tasks:
+    - name: Actualizar cache de apt
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Instalar dependencias
+      apt:
+        name:
+          - wget
+          - curl
+          - apt-transport-https
+          - software-properties-common
+          - gnupg2
+        state: present
+
+    # POSTGRESQL
+    - name: Instalar PostgreSQL
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
+        state: present
+
+    - name: Iniciar y habilitar PostgreSQL
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Esperar a que PostgreSQL esté listo
+      wait_for:
+        port: 5432
+        delay: 3
+
+    - name: Configurar PostgreSQL para escuchar en todas las interfaces
+      lineinfile:
+        path: /etc/postgresql/10/main/postgresql.conf
+        regexp: '^#?listen_addresses'
+        line: "listen_addresses = '*'"
+      notify: restart postgresql
+
+    - name: Configurar pg_hba.conf para permitir conexiones remotas
+      lineinfile:
+        path: /etc/postgresql/10/main/pg_hba.conf
+        line: 'host    all             all             192.168.33.0/24         md5'
+        insertafter: EOF
+      notify: restart postgresql
+
+    - name: Crear usuario PostgreSQL salome
+      postgresql_user:
+        name: salome
+        password: '123'
+        state: present
+      become_user: postgres
+
+    - name: Crear base de datos tallerdb
+      postgresql_db:
+        name: tallerdb
+        owner: salome
+        state: present
+      become_user: postgres
+
+    - name: Crear tabla productos
+      postgresql_query:
+        db: tallerdb
+        query: |
+          CREATE TABLE IF NOT EXISTS productos (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT,
+            precio NUMERIC
+          );
+      become_user: postgres
+
+    - name: Insertar datos en productos
+      postgresql_query:
+        db: tallerdb
+        query: |
+          INSERT INTO productos (nombre, precio) 
+          SELECT * FROM (VALUES
+            ('Laptop', 1200),
+            ('Mouse', 25),
+            ('Teclado', 80),
+            ('Monitor', 300),
+            ('Webcam', 150)
+          ) AS v(nombre, precio)
+          WHERE NOT EXISTS (SELECT 1 FROM productos LIMIT 1);
+      become_user: postgres
+
+    - name: Dar permisos al usuario salome
+      postgresql_query:
+        db: tallerdb
+        query: |
+          GRANT ALL PRIVILEGES ON TABLE productos TO salome;
+          GRANT USAGE, SELECT ON SEQUENCE productos_id_seq TO salome;
+      become_user: postgres
+
+    # PROMETHEUS
+    - name: Crear usuario prometheus
+      user:
+        name: prometheus
+        system: yes
+        shell: /bin/false
+        create_home: no
+
+    - name: Crear directorios para Prometheus
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
+    - name: Descargar Prometheus
+      get_url:
+        url: https://github.com/prometheus/prometheus/releases/download/v2.44.0/prometheus-2.44.0.linux-amd64.tar.gz
+        dest: /tmp/prometheus.tar.gz
+
+    - name: Extraer Prometheus
+      unarchive:
+        src: /tmp/prometheus.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Copiar binarios de Prometheus
+      copy:
+        src: "/tmp/prometheus-2.44.0.linux-amd64/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        mode: '0755'
+        remote_src: yes
+      loop:
+        - prometheus
+        - promtool
+
+    - name: Copiar archivos de configuración de Prometheus
+      command: "cp -r /tmp/prometheus-2.44.0.linux-amd64/{{ item }} /etc/prometheus/"
+      loop:
+        - consoles
+        - console_libraries
+      args:
+        creates: "/etc/prometheus/{{ item }}"
+
+    - name: Establecer permisos de archivos copiados
+      file:
+        path: "/etc/prometheus/{{ item }}"
+        owner: prometheus
+        group: prometheus
+        recurse: yes
+      loop:
+        - consoles
+        - console_libraries
+
+    - name: Crear archivo de configuración de Prometheus
+      copy:
+        dest: /etc/prometheus/prometheus.yml
+        owner: prometheus
+        group: prometheus
+        content: |
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 15s
+
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            - job_name: 'web-server-node'
+              static_configs:
+                - targets: ['192.168.33.10:9100']
+                  labels:
+                    alias: 'web-server'
+
+            - job_name: 'nginx'
+              static_configs:
+                - targets: ['192.168.33.10:9113']
+                  labels:
+                    alias: 'nginx-web'
+
+    - name: Crear servicio systemd para Prometheus
+      copy:
+        dest: /etc/systemd/system/prometheus.service
+        content: |
+          [Unit]
+          Description=Prometheus
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=prometheus
+          Group=prometheus
+          Type=simple
+          ExecStart=/usr/local/bin/prometheus \
+            --config.file=/etc/prometheus/prometheus.yml \
+            --storage.tsdb.path=/var/lib/prometheus/ \
+            --web.console.templates=/etc/prometheus/consoles \
+            --web.console.libraries=/etc/prometheus/console_libraries
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Recargar systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Iniciar y habilitar Prometheus
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+
+    # GRAFANA
+    - name: Agregar clave GPG de Grafana
+      apt_key:
+        url: https://apt.grafana.com/gpg.key
+        state: present
+
+    - name: Agregar repositorio de Grafana
+      apt_repository:
+        repo: deb https://apt.grafana.com stable main
+        state: present
+        filename: grafana
+
+    - name: Actualizar cache de apt
+      apt:
+        update_cache: yes
+
+    - name: Instalar Grafana
+      apt:
+        name: grafana
+        state: present
+
+    - name: Configurar Grafana
+      copy:
+        dest: /etc/grafana/grafana.ini
+        content: |
+          [server]
+          http_addr = 0.0.0.0
+          http_port = 3000
+
+          [security]
+          admin_user = admin
+          admin_password = admin
+
+          [users]
+          allow_sign_up = false
+      notify: restart grafana
+
+    - name: Crear directorio para provisioning de datasources
+      file:
+        path: /etc/grafana/provisioning/datasources
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+
+    - name: Configurar Prometheus como datasource en Grafana
+      copy:
+        dest: /etc/grafana/provisioning/datasources/prometheus.yml
+        owner: grafana
+        group: grafana
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://localhost:9090
+              isDefault: true
+              editable: true
+
+    - name: Iniciar y habilitar Grafana
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes
+
+    - name: Esperar a que Grafana esté listo
+      wait_for:
+        port: 3000
+        delay: 5
+        timeout: 60
+
+    # VERIFICACIÓN
+    - name: Mostrar resumen
+      debug:
+        msg:
+          - "Provisionamiento completado!"
+          - "PostgreSQL: tallerdb con 5 productos"
+          - "Prometheus: http://localhost:9090"
+          - "Grafana: http://localhost:3000 (admin/admin)"
+
+  handlers:
+    - name: restart postgresql
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted

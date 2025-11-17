@@ -1,0 +1,199 @@
+---
+- name: Provisionar Servidor Web con Nginx
+  hosts: all
+  become: yes
+  
+  tasks:
+    - name: Actualizar cache de apt
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    # INSTALAR NGINX Y PHP
+    - name: Instalar Nginx, PHP y extensiones
+      apt:
+        name:
+          - nginx
+          - php-fpm
+          - php-pgsql
+        state: present
+
+    - name: Iniciar y habilitar Nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Iniciar y habilitar PHP-FPM
+      systemd:
+        name: php7.2-fpm
+        state: started
+        enabled: yes
+
+    # CONFIGURAR NGINX
+    - name: Configurar Nginx para PHP
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              
+              root /var/www/html;
+              index index.html index.htm index.php;
+              
+              server_name _;
+              
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+              
+              location ~ \.php$ {
+                  include snippets/fastcgi-php.conf;
+                  fastcgi_pass unix:/var/run/php/php7.2-fpm.sock;
+              }
+              
+              location /nginx_status {
+                  stub_status on;
+                  access_log off;
+                  allow 127.0.0.1;
+                  allow 192.168.33.0/24;
+                  deny all;
+              }
+          }
+      notify: restart nginx
+
+    # COPIAR ARCHIVOS WEB
+    - name: Verificar si existen archivos en /vagrant/www
+      stat:
+        path: /vagrant/www
+      register: vagrant_www
+
+    - name: Copiar archivos del proyecto
+      copy:
+        src: "/vagrant/www/{{ item }}"
+        dest: "/var/www/html/{{ item }}"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+        remote_src: yes
+      loop:
+        - index.html
+        - info.php
+        - dataexplorer.html
+      when: vagrant_www.stat.exists
+      ignore_errors: yes
+
+    - name: Establecer permisos correctos
+      file:
+        path: /var/www/html
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    # INSTALAR NODE EXPORTER
+    - name: Descargar Node Exporter
+      get_url:
+        url: https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
+        dest: /tmp/node_exporter.tar.gz
+
+    - name: Extraer Node Exporter
+      unarchive:
+        src: /tmp/node_exporter.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Copiar binario de Node Exporter
+      copy:
+        src: /tmp/node_exporter-1.6.1.linux-amd64/node_exporter
+        dest: /usr/local/bin/node_exporter
+        mode: '0755'
+        remote_src: yes
+
+    - name: Crear servicio systemd para Node Exporter
+      copy:
+        dest: /etc/systemd/system/node_exporter.service
+        content: |
+          [Unit]
+          Description=Node Exporter
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          ExecStart=/usr/local/bin/node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Recargar systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Iniciar y habilitar Node Exporter
+      systemd:
+        name: node_exporter
+        state: started
+        enabled: yes
+
+    # INSTALAR NGINX PROMETHEUS EXPORTER
+    - name: Descargar Nginx Prometheus Exporter
+      get_url:
+        url: https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/v0.11.0/nginx-prometheus-exporter_0.11.0_linux_amd64.tar.gz
+        dest: /tmp/nginx_exporter.tar.gz
+
+    - name: Extraer Nginx Exporter
+      unarchive:
+        src: /tmp/nginx_exporter.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Copiar binario de Nginx Exporter
+      copy:
+        src: /tmp/nginx-prometheus-exporter
+        dest: /usr/local/bin/nginx-prometheus-exporter
+        mode: '0755'
+        remote_src: yes
+
+    - name: Crear servicio para Nginx Exporter
+      copy:
+        dest: /etc/systemd/system/nginx_exporter.service
+        content: |
+          [Unit]
+          Description=Nginx Prometheus Exporter
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          ExecStart=/usr/local/bin/nginx-prometheus-exporter -nginx.scrape-uri=http://localhost/nginx_status
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Iniciar y habilitar Nginx Exporter
+      systemd:
+        name: nginx_exporter
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    # VERIFICACIÓN FINAL
+    - name: Verificar que Nginx está corriendo
+      service:
+        name: nginx
+        state: started
+
+    - name: Mostrar resumen de servicios
+      debug:
+        msg:
+          - "Provisionamiento completado!"
+          - "Servidor web: http://192.168.33.10"
+          - "Node Exporter: http://192.168.33.10:9100/metrics"
+          - "Nginx Exporter: http://192.168.33.10:9113/metrics"
+
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
