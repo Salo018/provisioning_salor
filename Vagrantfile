@@ -1,9 +1,8 @@
 Vagrant.configure("2") do |config|
   
-  # Máquina Web (Apache + PHP + Exporters)
+  # Máquina Web (Nginx + Node Exporter)
   config.vm.define "web" do |web|
-    web.vm.box = "bento/ubuntu-18.04"
-    web.vm.box_version = "202112.19.0"
+    web.vm.box = "ubuntu/bionic64"
     web.vm.hostname = "web-server"
     web.vm.network "private_network", ip: "192.168.33.10"
     
@@ -13,14 +12,21 @@ Vagrant.configure("2") do |config|
       vb.name = "Web"
     end
     
-    # Provisionar con script shell
-    web.vm.provision "shell", path: "provision-web.sh"
+    # Provisionar con Ansible
+    web.vm.provision "ansible_local" do |ansible|
+      ansible.playbook = "provision-web.yml"
+      ansible.install = true
+      ansible.install_mode = "default"
+      ansible.verbose = false
+      ansible.extra_vars = {
+        ansible_python_interpreter: "/usr/bin/python3"
+      }
+    end
   end
 
-  # Máquina DB (PostgreSQL + Prometheus + Grafana)
+  # Maquina DB (PostgreSQL + Prometheus + Grafana)
   config.vm.define "db" do |db|
-    db.vm.box = "bento/ubuntu-18.04"
-    db.vm.box_version = "202112.19.0"
+    db.vm.box = "ubuntu/bionic64"
     db.vm.hostname = "db-server"
     db.vm.network "private_network", ip: "192.168.33.11"
     
@@ -34,8 +40,16 @@ Vagrant.configure("2") do |config|
       vb.name = "Db"
     end
     
-    # Provisionar con script shell
-    db.vm.provision "shell", path: "provision-db.sh"
+    # Provisionar con Ansible
+    db.vm.provision "ansible_local" do |ansible|
+      ansible.playbook = "provision-db.yml"
+      ansible.install = true
+      ansible.install_mode = "default"
+      ansible.verbose = false
+      ansible.extra_vars = {
+        ansible_python_interpreter: "/usr/bin/python3"
+      }
+    end
   end
 
 end
