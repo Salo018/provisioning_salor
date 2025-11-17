@@ -1,4 +1,3 @@
-
 Vagrant.configure("2") do |config|
   
   # Máquina Web (Apache + PHP + Exporters)
@@ -11,7 +10,7 @@ Vagrant.configure("2") do |config|
     web.vm.provider "virtualbox" do |vb|
       vb.memory = "1024"
       vb.cpus = 1
-      vb.name = "DataExplorer-Web"
+      vb.name = "Web"
     end
     
     # Provisionar con script shell
@@ -22,7 +21,7 @@ Vagrant.configure("2") do |config|
   config.vm.define "db" do |db|
     db.vm.box = "bento/ubuntu-18.04"
     db.vm.box_version = "202112.19.0"
-    db.vm.hostname = "monitoring-db-server"
+    db.vm.hostname = "db-server"
     db.vm.network "private_network", ip: "192.168.33.11"
     
     # Port forwarding para acceder desde Windows
@@ -32,7 +31,7 @@ Vagrant.configure("2") do |config|
     db.vm.provider "virtualbox" do |vb|
       vb.memory = "2048"
       vb.cpus = 2
-      vb.name = "DataExplorer-DB-Monitoring"
+      vb.name = "Db"
     end
     
     # Provisionar con script shell
