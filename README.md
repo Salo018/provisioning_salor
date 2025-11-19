@@ -45,7 +45,7 @@ vagrant up
 - Acceder a http://192.168.33.10/dataexplorer.html para entrar a los enlaces de monitoreo.
 
 ### 4. Explorar Prometheus
-- Acceder a http://192.168.33.11:9090 o direcatamente a los targets con http://192.168.33.11:9090/targets?search=  
+- Acceder a http://192.168.33.11:9090 o directamente a los targets con http://192.168.33.11:9090/targets?search=  
 #### Algunas consultas que puedes hacer desde la pagina principal de Prometheus:
 **Uso de CPU:**
 ```promql
@@ -180,7 +180,7 @@ sudo -u postgres psql -d tallerdb -c 'SELECT * FROM productos;'
 
 # Agregar un producto
 vagrant ssh db 
-sudo -u postgres psql -d tallerdb -c \"INSERT INTO productos (nombre, precio) VALUES ('USB Drive', 20);\""
+sudo -u postgres psql -d tallerdb -c "INSERT INTO productos (nombre, precio) VALUES ('USB Drive', 20);"
 ```
 
 ---
