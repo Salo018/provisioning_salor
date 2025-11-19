@@ -44,9 +44,6 @@ vagrant up
 - Acceder a http://192.168.33.10/info.php para ver los productos desde PostgreSQL.
 - Acceder a http://192.168.33.10/dataexplorer.html para entrar a los enlaces de monitoreo.
 
-```bash
-
-```
 ### 4. Explorar Prometheus
 - Acceder a http://192.168.33.11:9090 o direcatamente a los targets con http://192.168.33.11:9090/targets?search=  
 #### Algunas consultas que puedes hacer desde la pagina principal de Prometheus:
